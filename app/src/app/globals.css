@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg: #050816;
+  --surface: #0b1020;
+  --surface-raised: #11162a;
+  --border: #1e2542;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --accent: #22d3ee;
+  --accent-2: #8b5cf6;
+  --accent-hover: #67e8f9;
+  --accent-contrast: #041014;
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.1);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --danger: #fb7185;
+  --danger-bg: rgba(251, 113, 133, 0.1);
+  --pending: #a78bfa;
+  --pending-bg: rgba(167, 139, 250, 0.1);
+  --focus-ring: #22d3ee;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-pending: var(--pending);
+  --color-pending-bg: var(--pending-bg);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono-body);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  background-image: radial-gradient(1100px 550px at 15% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 90% 0%, rgba(139, 92, 246, 0.14), transparent 60%);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(17, 22, 42, 0.85), rgba(11, 16, 32, 0.85));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.hairline {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cyber-border {
+  position: relative;
+}
+.cyber-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.55), rgba(139, 92, 246, 0.55));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1px;
+}
+
+.gradient-text {
+  background: linear-gradient(90deg, #67e8f9 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.glow {
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.15), 0 8px 30px -8px rgba(34, 211, 238, 0.25),
+    0 8px 30px -12px rgba(139, 92, 246, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

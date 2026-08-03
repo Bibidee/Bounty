@@ -1,6 +1,6 @@
 # Bounty Verdict
 
-**Live:** https://app-woad-alpha.vercel.app
+**Live:** https://the-bountyverdict.vercel.app
 
 A trustless escrow for security bug bounties, built on GenLayer.
 
@@ -122,7 +122,7 @@ of truth.
 - **Result:** `Execution Result: SUCCESS`, `Result Code: Return`. Every read
   and write below was exercised directly against this address on real
   StudioNet, not simulated.
-- **Live frontend:** https://app-woad-alpha.vercel.app — confirmed reading
+- **Live frontend:** https://the-bountyverdict.vercel.app — confirmed reading
   the same live reports shown in the table below, including the deep link
   `/reports/1` loading standalone with the real consensus verdict reasoning.
 

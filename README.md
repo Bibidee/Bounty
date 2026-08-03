@@ -182,8 +182,29 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA
 - **`npm run verify-schema`** (`app/scripts/verify-schema.mjs`) passes against
   this deployment: all 9 frontend call sites match the real contract schema
   by name and arity.
+- **`gltest tests/integration -v -s --network studionet`: 4/4 passing**
+  against a freshly-deployed instance each run (deploy, fund, submit, accept,
+  withdraw, and a full dispute → resolve round). The consensus round
+  produced a real, unscripted verdict:
+
+  ```
+  StudioNet verdict for out-of-scope report: 'invalid'
+  Reason: 'The report describes a documentation change request rather than
+  a Remote Code Execution or Authentication Bypass vulnerability as
+  required by the program scope.'
+  ```
 
 ## Real bugs found and fixed along the way
+
+**`gltest`'s `Contract` methods return a `ContractFunction` wrapper, not the
+result** — a read needs `.call()`, a write needs `.transact(...)`, and
+calling as a different signer needs `contract.connect(other_account)` rather
+than an `account=` kwarg on the call itself. The first integration test
+draft, copied from an older cached example's calling convention, failed with
+`TypeError: 'ContractFunction' object is not subscriptable` and later
+`TypeError: transact() got an unexpected keyword argument 'account'` —
+fixed by reading `gltest`'s actual installed source rather than guessing
+from a stale pattern.
 
 **`genvm-lint`'s `validate` step can't load the v0.3.0 SDK line on this
 machine** (`No module named 'genlayer.py'`) — a packaging bug in
@@ -254,8 +275,8 @@ frontend's own generated-wallet path uses) — never the deployer's key.
 
 ## What I'd do next
 
-Run the `gltest` integration suite against this same deployed address for a
-fully automated regression check, and complete a first-time-user walk on the
-live URL with a real injected wallet extension (the generated-wallet path is
-already confirmed working live, in-browser, including persistence across
-reload).
+Complete a first-time-user walk on the live URL with a real injected wallet
+extension (MetaMask or similar) in a normal desktop browser — the
+generated-wallet path is already confirmed working live, in-browser,
+including persistence across reload, but a real extension wasn't available
+to click-test in this environment.

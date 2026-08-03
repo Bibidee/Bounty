@@ -25,7 +25,7 @@ def deploy_contract():
         wait_retries=60,
     )
 
-    info = contract.get_program_info(args=[])
+    info = contract.get_program_info(args=[]).call()
     assert info["maintainer"].lower() == owner.address.lower()
     assert info["pool_balance"] == 0
     assert info["report_count"] == 0
@@ -35,15 +35,14 @@ def deploy_contract():
 def test_deploy_and_fund_pool():
     contract = load_fixture(deploy_contract)
 
-    fund_result = contract.fund_pool(
-        args=[],
+    fund_result = contract.fund_pool(args=[]).transact(
         value=1000,
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(fund_result)
 
-    info = contract.get_program_info(args=[])
+    info = contract.get_program_info(args=[]).call()
     assert info["pool_balance"] == 1000
 
 
@@ -51,43 +50,41 @@ def test_submit_and_accept_report_full_lifecycle():
     contract = load_fixture(deploy_contract)
     [reporter] = create_accounts(1)
 
-    fund_result = contract.fund_pool(
-        args=[],
+    fund_result = contract.fund_pool(args=[]).transact(
         value=2000,
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(fund_result)
 
-    submit_result = contract.submit_report(
-        args=["Insecure default config", "Detailed writeup of the issue.", ""],
+    submit_result = contract.connect(reporter).submit_report(
+        args=["Insecure default config", "Detailed writeup of the issue.", ""]
+    ).transact(
         value=MIN_BOND,
-        account=reporter,
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(submit_result)
 
-    report_ids = contract.list_report_ids(args=[])
+    report_ids = contract.list_report_ids(args=[]).call()
     assert len(report_ids) == 1
     report_id = report_ids[0]
 
-    report = contract.get_report(args=[report_id])
+    report = contract.get_report(args=[report_id]).call()
     assert report["status"] == "submitted"
     assert report["bond"] == MIN_BOND
 
-    accept_result = contract.accept_report(
-        args=[report_id, 500],
+    accept_result = contract.accept_report(args=[report_id, 500]).transact(
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(accept_result)
 
-    report = contract.get_report(args=[report_id])
+    report = contract.get_report(args=[report_id]).call()
     assert report["status"] == "valid"
     assert report["bond"] == 0
 
-    info = contract.get_program_info(args=[])
+    info = contract.get_program_info(args=[]).call()
     assert info["pool_balance"] == 2000 - 500
 
 
@@ -95,26 +92,25 @@ def test_submit_withdraw_unresolved():
     contract = load_fixture(deploy_contract)
     [reporter] = create_accounts(1)
 
-    submit_result = contract.submit_report(
-        args=["Minor issue", "Not a big deal", ""],
+    reporter_contract = contract.connect(reporter)
+    submit_result = reporter_contract.submit_report(
+        args=["Minor issue", "Not a big deal", ""]
+    ).transact(
         value=MIN_BOND,
-        account=reporter,
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(submit_result)
 
-    report_id = contract.list_report_ids(args=[])[0]
+    report_id = contract.list_report_ids(args=[]).call()[0]
 
-    withdraw_result = contract.withdraw_unresolved(
-        args=[report_id],
-        account=reporter,
+    withdraw_result = reporter_contract.withdraw_unresolved(args=[report_id]).transact(
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(withdraw_result)
 
-    report = contract.get_report(args=[report_id])
+    report = contract.get_report(args=[report_id]).call()
     assert report["status"] == "withdrawn"
     assert report["bond"] == 0
 
@@ -126,47 +122,44 @@ def test_dispute_and_resolve_real_consensus():
     contract = load_fixture(deploy_contract)
     [reporter] = create_accounts(1)
 
-    fund_result = contract.fund_pool(
-        args=[],
+    fund_result = contract.fund_pool(args=[]).transact(
         value=1000,
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(fund_result)
 
-    submit_result = contract.submit_report(
+    submit_result = contract.connect(reporter).submit_report(
         args=[
             "Clearly out of scope report",
             "This report is unrelated to any security vulnerability and just "
             "asks the maintainer to change the README wording.",
             "",
-        ],
+        ]
+    ).transact(
         value=MIN_BOND,
-        account=reporter,
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(submit_result)
 
-    report_id = contract.list_report_ids(args=[])[0]
+    report_id = contract.list_report_ids(args=[]).call()[0]
 
-    dispute_result = contract.dispute_report(
-        args=[report_id],
+    dispute_result = contract.dispute_report(args=[report_id]).transact(
         wait_interval=5000,
         wait_retries=60,
     )
     assert tx_execution_succeeded(dispute_result)
 
-    assert contract.get_report(args=[report_id])["status"] == "disputed"
+    assert contract.get_report(args=[report_id]).call()["status"] == "disputed"
 
-    resolve_result = contract.resolve_dispute(
-        args=[report_id, 100],
+    resolve_result = contract.resolve_dispute(args=[report_id, 100]).transact(
         wait_interval=8000,
         wait_retries=90,
     )
     assert tx_execution_succeeded(resolve_result)
 
-    report = contract.get_report(args=[report_id])
+    report = contract.get_report(args=[report_id]).call()
     assert report["status"] in ("valid", "invalid", "duplicate", "unresolved")
     assert report["bond"] == 0
     assert report["resolved_at"]

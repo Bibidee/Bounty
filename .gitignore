@@ -21,6 +21,9 @@ artifacts/
 # Diagnostic scaffold used only to isolate a StudioNet deploy bug — not part of this project
 gltemplate/
 
+# Local tooling config (harness-specific, not part of the project)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db

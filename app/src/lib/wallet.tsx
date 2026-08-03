@@ -14,7 +14,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { chain, chainName, WALLET_ACK_STORAGE_KEY, WALLET_STORAGE_KEY } from "./config";
+import { chain, WALLET_ACK_STORAGE_KEY, WALLET_STORAGE_KEY } from "./config";
 
 type WalletMode = "detecting" | "injected" | "generated" | "none";
 
@@ -93,26 +93,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (!walletAddress) {
       throw new Error("No account returned by the injected wallet.");
     }
+    // Plain injected-wallet signing: the client falls back to
+    // window.ethereum for personal_sign / eth_sendTransaction whenever
+    // account is a bare address. No MetaMask Snap step required.
     const injectedClient = createClient({
       chain,
       account: walletAddress,
+      provider: window.ethereum,
     }) as GenLayerClient<typeof chain>;
-    try {
-      await injectedClient.connect(chainName);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      if (/snap/i.test(message)) {
-        throw new Error(
-          "GenLayer's injected-wallet flow signs through a MetaMask Snap, " +
-            "which the active wallet extension doesn't support (some " +
-            "wallets report themselves as MetaMask-compatible without " +
-            "actually implementing Snaps). Disable other wallet extensions " +
-            "so real MetaMask is the only one active, or use the " +
-            "generated-wallet option instead."
-        );
-      }
-      throw e;
-    }
     setClient(injectedClient);
     setAddress(walletAddress);
     setMode("injected");

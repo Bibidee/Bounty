@@ -86,16 +86,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined" || !window.ethereum) {
       throw new Error("No injected wallet detected.");
     }
-    if (!(window.ethereum as EthereumProvider & { isMetaMask?: boolean }).isMetaMask) {
-      throw new Error(
-        "GenLayer's injected-wallet flow signs through a MetaMask Snap " +
-          "(wallet_getSnaps), which only real MetaMask supports. Brave " +
-          "Wallet, Rabby, Coinbase Wallet and similar providers aren't " +
-          "compatible even though they inject window.ethereum. Disable " +
-          "other wallet extensions so MetaMask is the active provider, " +
-          "or use the generated-wallet option instead."
-      );
-    }
     const accounts = (await window.ethereum.request({
       method: "eth_requestAccounts",
     })) as string[];
@@ -107,7 +97,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       chain,
       account: walletAddress,
     }) as GenLayerClient<typeof chain>;
-    await injectedClient.connect(chainName);
+    try {
+      await injectedClient.connect(chainName);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (/snap/i.test(message)) {
+        throw new Error(
+          "GenLayer's injected-wallet flow signs through a MetaMask Snap, " +
+            "which the active wallet extension doesn't support (some " +
+            "wallets report themselves as MetaMask-compatible without " +
+            "actually implementing Snaps). Disable other wallet extensions " +
+            "so real MetaMask is the only one active, or use the " +
+            "generated-wallet option instead."
+        );
+      }
+      throw e;
+    }
     setClient(injectedClient);
     setAddress(walletAddress);
     setMode("injected");

@@ -7,6 +7,14 @@ function short(addr: string) {
   return `${addr.slice(0, 10)}…${addr.slice(-8)}`;
 }
 
+function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e) {
+    return String((e as { message: unknown }).message);
+  }
+  return "Failed to connect wallet.";
+}
+
 export function WalletPanel({ onClose }: { onClose: () => void }) {
   const wallet = useWallet();
   const ref = useRef<HTMLDivElement>(null);
@@ -30,7 +38,7 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
     try {
       await wallet.connectInjected();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to connect wallet.");
+      setError(errorMessage(e));
     }
   }
 
@@ -39,7 +47,7 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
     try {
       wallet.generateNewWallet(ack);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to generate wallet.");
+      setError(errorMessage(e));
     }
   }
 
@@ -50,7 +58,7 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
       setImportValue("");
       setShowImport(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to import key.");
+      setError(errorMessage(e));
     }
   }
 

@@ -1,6 +1,6 @@
 # Bounty Verdict
 
-**Live:** https://the-bountyverdict.vercel.app
+**Live:** https://bounty-alpha.vercel.app
 
 A trustless escrow for security bug bounties, built on GenLayer.
 
@@ -122,7 +122,7 @@ of truth.
 - **Result:** `Execution Result: SUCCESS`, `Result Code: Return`. Every read
   and write below was exercised directly against this address on real
   StudioNet, not simulated.
-- **Live frontend:** https://the-bountyverdict.vercel.app — confirmed reading
+- **Live frontend:** https://bounty-alpha.vercel.app — confirmed reading
   the same live reports shown in the table below, including the deep link
   `/reports/1` loading standalone with the real consensus verdict reasoning.
 
@@ -174,11 +174,15 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA
   | `resolve_dispute(1, 100)` — **real consensus round**, live web fetch + LLM judgment | verdict: `invalid` — *"The reported CSRF vulnerability on password reset is out of scope; the program only covers RCE and auth bypass vulnerabilities."* Bond forfeited to pool: `500 → 520` |
   | `accept_report(2, 100)` | status `submitted → valid`, pool `520 → 420` (bounty paid) |
   | `submit_report` + `withdraw_unresolved(4)`, same reporter | status `submitted → withdrawn`, bond `30 → 0`, refunded |
+  | `submit_report(5)` + `dispute_report(5)` + `resolve_dispute(5, 150)` — plausible-sounding RCE report, **no evidence URL supplied** | verdict: `unresolved` (abstention) — *"...no fetched evidence or issue history substantiates the presence of an /import endpoint, unsafe loader usage, or exploitability..."* Bond fully refunded, `15 → 0`, pool unchanged. |
+  | `submit_report(6)` + `dispute_report(6)` + `resolve_dispute(6, 150)` — report citing a real, fetchable CVE page as evidence, but the CVE has no actual connection to the target repo | verdict: `unresolved` (abstention) — *"The evidence only cites CVE-2017-9805 generically and does not show this codebase actually deserializes untrusted XML... or that an existing issue matches the reported vulnerability."* Bond fully refunded. |
 
-  `resolve_dispute` above is the one that matters most: the contract
-  correctly judged a real, plausible-sounding CSRF report as out-of-scope by
-  comparing it against the program's stated scope — not a scripted or mocked
-  answer, an actual GenLayer consensus round on StudioNet.
+  Reports #5 and #6 matter as much as the `invalid` verdict above: the
+  contract refused to rubber-stamp a report just because it cited an
+  authoritative-sounding CVE, or read as plausible prose. It abstained
+  rather than guess in both cases — the mandatory abstention path working
+  live, not mocked, against genuinely adversarial-shaped inputs designed to
+  see if the model could be talked into a false positive.
 - **`npm run verify-schema`** (`app/scripts/verify-schema.mjs`) passes against
   this deployment: all 9 frontend call sites match the real contract schema
   by name and arity.
@@ -253,12 +257,14 @@ frontend's own generated-wallet path uses) — never the deployer's key.
 
 ## Honest limits
 
-- **`UNDETERMINED` and validator timeouts** are handled in the UI as
-  retryable, non-error states (`src/components/TxProgress.tsx`), but I have
-  not personally observed a real `UNDETERMINED` outcome on-chain — every
-  live write in this session reached `ACCEPTED`/`FINALIZED` on the first or
-  second attempt. It's exercised directly in the contract test suite
-  (mocked malformed/ambiguous LLM output mapping to `unresolved`).
+- **`UNDETERMINED` and validator timeouts** (consensus itself failing to
+  agree) are handled in the UI as retryable, non-error states
+  (`src/components/TxProgress.tsx`), but I have not personally observed
+  that specific outcome on-chain — every live write in this session reached
+  `ACCEPTED`/`FINALIZED`. The contract's own `unresolved` abstention state
+  (consensus agreeing the evidence doesn't substantiate a verdict) is a
+  different thing and *was* observed live twice — see reports #5 and #6
+  above.
 - **Balances on StudioNet are simulated** — there's no real EVM layer behind
   it, so the escrow's fund flows are proven by test, by direct-mode
   execution, and by the live on-chain balance changes shown above, but not

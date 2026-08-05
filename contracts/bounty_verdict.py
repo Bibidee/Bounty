@@ -19,6 +19,22 @@ MAX_REPORTS = 500
 MAX_TEXT_LEN = 4000
 
 
+@gl.evm.contract_interface
+class ExternalWallet:
+    """
+    Used only to move native GEN to a plain wallet address. gl.get_contract_at(...)
+    sends a PostMessage that GenVM tries to run as a contract invocation, which
+    fails against an address with no deployed contract code. This goes through
+    the EVM-compatible send path instead, which plain wallets can receive.
+    """
+
+    class View:
+        pass
+
+    class Write:
+        pass
+
+
 @allow_storage
 @dataclass
 class Report:
@@ -77,7 +93,7 @@ class BountyVerdict(gl.Contract):
     def _pay(self, to: Address, amount: u256) -> None:
         if int(amount) <= 0:
             return
-        gl.get_contract_at(to).emit_transfer(value=u256(amount), on="finalized")
+        ExternalWallet(to).emit_transfer(value=u256(amount))
 
     # ---------- funding ----------
 

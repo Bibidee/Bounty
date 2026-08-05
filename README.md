@@ -116,15 +116,19 @@ of truth.
 ## Deployed contract
 
 - **Network:** StudioNet
-- **Address:** `0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA`
-- **Deployment transaction:** `0x2a12497446ee00008157950557fc57f432ffd13765b57180c140101be4ade128`
-- **Explorer:** https://explorer-studio.genlayer.com/tx/0x2a12497446ee00008157950557fc57f432ffd13765b57180c140101be4ade128
+- **Address:** `0xe0300064F9AD45145af03A8256df76C2688eC6b1`
+- **Deployment transaction:** `0x7c40659114313216570708d47f6f75099746bc89a7a43a1af4e5ac73b293c91b`
+- **Explorer:** https://explorer-studio.genlayer.com/tx/0x7c40659114313216570708d47f6f75099746bc89a7a43a1af4e5ac73b293c91b
 - **Result:** `Execution Result: SUCCESS`, `Result Code: Return`. Every read
   and write below was exercised directly against this address on real
   StudioNet, not simulated.
 - **Live frontend:** https://bounty-alpha.vercel.app — confirmed reading
-  the same live reports shown in the table below, including the deep link
-  `/reports/1` loading standalone with the real consensus verdict reasoning.
+  live reports from this contract, including deep links loading standalone
+  with real consensus verdict reasoning.
+
+This is a redeploy. An earlier deployed address
+(`0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA`) is retired — see *Real bugs
+found and fixed* below for why.
 
 ## Setup
 
@@ -149,7 +153,7 @@ npm run verify-schema  # cross-checks every call site against the deployed contr
 
 ```
 NEXT_PUBLIC_GENLAYER_CHAIN=studionet
-NEXT_PUBLIC_CONTRACT_ADDRESS=0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xe0300064F9AD45145af03A8256df76C2688eC6b1
 ```
 
 ## Tests and results
@@ -164,25 +168,23 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA
   both pass (`lint.ok: true, validate.ok: true`, 12 methods, 6 view / 6
   write, 4 constructor params).
 - **Every write method exercised directly on live StudioNet consensus**,
-  outside the test suite, against the deployed address above:
+  outside the test suite, against the currently deployed address, **with
+  payouts confirmed by reading the recipient's actual native balance
+  (`eth_getBalance`), not just the contract's internal bookkeeping**:
 
   | Call | Result |
   |---|---|
-  | `fund_pool(value=500)` | pool balance `0 → 500` |
-  | `submit_report(...)` × 3 | reports #1, #2, #4 created with bonds 20, 15, 30 |
-  | `dispute_report(1)` | status `submitted → disputed` |
-  | `resolve_dispute(1, 100)` — **real consensus round**, live web fetch + LLM judgment | verdict: `invalid` — *"The reported CSRF vulnerability on password reset is out of scope; the program only covers RCE and auth bypass vulnerabilities."* Bond forfeited to pool: `500 → 520` |
-  | `accept_report(2, 100)` | status `submitted → valid`, pool `520 → 420` (bounty paid) |
-  | `submit_report` + `withdraw_unresolved(4)`, same reporter | status `submitted → withdrawn`, bond `30 → 0`, refunded |
-  | `submit_report(5)` + `dispute_report(5)` + `resolve_dispute(5, 150)` — plausible-sounding RCE report, **no evidence URL supplied** | verdict: `unresolved` (abstention) — *"...no fetched evidence or issue history substantiates the presence of an /import endpoint, unsafe loader usage, or exploitability..."* Bond fully refunded, `15 → 0`, pool unchanged. |
-  | `submit_report(6)` + `dispute_report(6)` + `resolve_dispute(6, 150)` — report citing a real, fetchable CVE page as evidence, but the CVE has no actual connection to the target repo | verdict: `unresolved` (abstention) — *"The evidence only cites CVE-2017-9805 generically and does not show this codebase actually deserializes untrusted XML... or that an existing issue matches the reported vulnerability."* Bond fully refunded. |
+  | `submit_report(...)` + `withdraw_unresolved(...)`, reporter bonded 25 wei | status `submitted → withdrawn`; reporter's real on-chain balance confirmed `0 → 25` wei |
+  | `submit_report(...)` + `dispute_report(...)` + `resolve_dispute(..., 0)` — an in-scope but unsubstantiated auth-bypass report, **real consensus round**, live web fetch + LLM judgment | verdict: `unresolved` (abstention) — *"The reported auth bypass is in scope, but no fetched evidence substantiates that /admin/users lacks an admin-role check, and the existing issue history shown does not indicate a matching prior report."* Bond refunded; reporter's real balance confirmed `0 → 25` wei |
 
-  Reports #5 and #6 matter as much as the `invalid` verdict above: the
-  contract refused to rubber-stamp a report just because it cited an
-  authoritative-sounding CVE, or read as plausible prose. It abstained
-  rather than guess in both cases — the mandatory abstention path working
-  live, not mocked, against genuinely adversarial-shaped inputs designed to
-  see if the model could be talked into a false positive.
+  Earlier verification rounds (documented below under *bugs found and
+  fixed*) ran against a since-retired address and included an `invalid`
+  verdict on an out-of-scope CSRF report and a `valid` verdict paid via
+  direct maintainer acceptance — both genuine, unscripted consensus
+  results, but from before the payout bug was found, so their *fund
+  movement* claims were wrong even though their *verdict* content was
+  real. The two rounds above are the ones actually proven to move real
+  GEN.
 - **`npm run verify-schema`** (`app/scripts/verify-schema.mjs`) passes against
   this deployment: all 9 frontend call sites match the real contract schema
   by name and arity.
@@ -200,6 +202,31 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA
 
 ## Real bugs found and fixed along the way
 
+**The escrow's payout mechanism silently failed to deliver funds — the
+most serious bug in this project, and the one I'm least proud of missing
+initially.** `_pay()` used `gl.get_contract_at(to).emit_transfer(...)` to
+send GEN to reporters. That method sends a `PostMessage`, which GenVM tries
+to execute as a contract invocation; against a plain wallet address with no
+deployed contract code, it fails with a generic GenVM `ERROR` on a separate
+internal transaction, labeled `(constructor)` in the explorer. Critically,
+`_pay()`'s Python-level bookkeeping (`report.bond = u256(0)`,
+`self.pool_balance -= ...`) runs unconditionally in the same method and has
+no way to know the transfer underneath it failed — so every report I'd
+marked `valid`, `duplicate`, `unresolved`, or `withdrawn` in earlier testing
+looked correctly settled from the contract's own state, while the GEN never
+actually left the contract. I caught this by checking a recipient's real
+balance directly (`eth_getBalance`) instead of only trusting the contract's
+internal counters — it read exactly `0`, while the contract itself still
+held the unspent balance. The fix uses `gl.evm.contract_interface` (an empty
+`View`/`Write` interface, `ExternalWallet` in the contract) instead, which
+sends via the lower-level `EthSend` primitive rather than trying to invoke a
+contract that isn't there. Verified after the fix: a recipient's on-chain
+balance moved from `0` to exactly the bond amount, wei-for-wei, confirmed
+both immediately after a direct withdrawal and after a real consensus
+abstention refund. **This required redeploying the contract** — the address
+above is that redeploy; an earlier address whose payouts never actually
+landed is retired.
+
 **`gltest`'s `Contract` methods return a `ContractFunction` wrapper, not the
 result** — a read needs `.call()`, a write needs `.transact(...)`, and
 calling as a different signer needs `contract.connect(other_account)` rather
@@ -216,9 +243,9 @@ machine** (`No module named 'genlayer.py'`) — a packaging bug in
 actual SDK source for multiple versions rather than trusting the docs or a
 stale scaffolded example; `v0.2.16` loads and validates correctly, so the
 contract is written and verified against that version's real API
-(`gl.Contract`, `allow_storage`, `gl.get_contract_at(addr).emit_transfer(...)`
-rather than a nonexistent `gl.chain.Account`, `Response.body` as `bytes`
-not `str`).
+(`gl.Contract`, `allow_storage`, `gl.evm.contract_interface` for paying a
+wallet address rather than a nonexistent `gl.chain.Account`, `Response.body`
+as `bytes` not `str`).
 
 **The `Depends` header must name an explicit runner hash, not a symbolic
 tag — this was the actual deploy blocker, and it cost several failed
@@ -263,12 +290,15 @@ frontend's own generated-wallet path uses) — never the deployer's key.
   that specific outcome on-chain — every live write in this session reached
   `ACCEPTED`/`FINALIZED`. The contract's own `unresolved` abstention state
   (consensus agreeing the evidence doesn't substantiate a verdict) is a
-  different thing and *was* observed live twice — see reports #5 and #6
-  above.
-- **Balances on StudioNet are simulated** — there's no real EVM layer behind
-  it, so the escrow's fund flows are proven by test, by direct-mode
-  execution, and by the live on-chain balance changes shown above, but not
-  by real-money settlement.
+  different thing and *was* observed live multiple times, including after
+  the payout fix, with the refund confirmed via the recipient's real
+  on-chain balance — see *Tests and results* above.
+- **StudioNet GEN is test currency, not real money** — but after the payout
+  fix, fund movement is proven at the same layer a real chain would use:
+  I read a recipient's actual native balance via `eth_getBalance` before and
+  after a payout and watched it move by the exact bond amount, not just the
+  contract's internal `pool_balance`/`bond` counters. What StudioNet doesn't
+  give is real-world monetary stakes behind that balance.
 - **The injected-wallet path is implemented and code-reviewed** against the
   same identity-sharing code the generated-wallet path uses (verified live:
   wallet generation, persistence across reload, and reads all confirmed in

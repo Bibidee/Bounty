@@ -6,7 +6,7 @@ import { studionet } from "genlayer-js/chains";
 
 const CONTRACT_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ??
-  "0x507D22C70976d5000Ef4c703D391Ed6F2F2134FA";
+  "0xe0300064F9AD45145af03A8256df76C2688eC6b1";
 
 const EXPECTED = {
   get_program_info: 0,

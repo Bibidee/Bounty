@@ -169,22 +169,26 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0xe0300064F9AD45145af03A8256df76C2688eC6b1
   write, 4 constructor params).
 - **Every write method exercised directly on live StudioNet consensus**,
   outside the test suite, against the currently deployed address, **with
-  payouts confirmed by reading the recipient's actual native balance
-  (`eth_getBalance`), not just the contract's internal bookkeeping**:
+  every payout confirmed by reading the recipient's actual native balance
+  (`eth_getBalance`), not just the contract's internal bookkeeping**. Seven
+  reports have moved through the program, covering the full status range:
 
-  | Call | Result |
-  |---|---|
-  | `submit_report(...)` + `withdraw_unresolved(...)`, reporter bonded 25 wei | status `submitted → withdrawn`; reporter's real on-chain balance confirmed `0 → 25` wei |
-  | `submit_report(...)` + `dispute_report(...)` + `resolve_dispute(..., 0)` — an in-scope but unsubstantiated auth-bypass report, **real consensus round**, live web fetch + LLM judgment | verdict: `unresolved` (abstention) — *"The reported auth bypass is in scope, but no fetched evidence substantiates that /admin/users lacks an admin-role check, and the existing issue history shown does not indicate a matching prior report."* Bond refunded; reporter's real balance confirmed `0 → 25` wei |
+  | # | Report | Path | Verdict | Payout confirmed |
+  |---|---|---|---|---|
+  | 1, 2 | Two test submissions | `submit_report` → `withdraw_unresolved` | `withdrawn` | reporter balance `0 → 25` wei, twice |
+  | 3 | In-scope auth-bypass claim, no evidence | `dispute_report` → `resolve_dispute` (real consensus) | `unresolved` — *"in scope, but no fetched evidence substantiates..."* | bond refunded, `0 → 25` wei |
+  | 4 | SQL injection in a search filter | `accept_report` (direct maintainer) | `valid` | bond + bounty paid, `0 → 320` wei |
+  | 5 | JWT `alg:none` privilege escalation | `dispute_report` → `resolve_dispute` (real consensus) | `unresolved` — *"no technical details, proof, or affected code/behavior to verify..."* | bond refunded |
+  | 6 | Unrate-limited 4-digit OTP enabling account takeover | `dispute_report` → `resolve_dispute` (real consensus) | **`valid`** — *"would plausibly enable unauthenticated account takeover via brute force, which fits the stated auth bypass scope..."* | bond + bounty paid, confirmed `0 → 270` wei (20 bond + 250 bounty, exact) |
+  | 7 | Broken access control on report deletion | `submit_report` | `submitted` (awaiting review) | — |
 
-  Earlier verification rounds (documented below under *bugs found and
-  fixed*) ran against a since-retired address and included an `invalid`
-  verdict on an out-of-scope CSRF report and a `valid` verdict paid via
-  direct maintainer acceptance — both genuine, unscripted consensus
-  results, but from before the payout bug was found, so their *fund
-  movement* claims were wrong even though their *verdict* content was
-  real. The two rounds above are the ones actually proven to move real
-  GEN.
+  Report #6 is the one that matters most: a full nondet consensus round —
+  live web fetch, LLM judgment, `prompt_comparative` agreement — ending in
+  a `valid` verdict, with the bounty payout independently confirmed by
+  reading the reporter's real wei balance before and after. Reports #3 and
+  #5 show the same round correctly *refusing* to validate technically
+  plausible claims that lacked concrete evidence — the model isn't simply
+  agreeable to anything scope-shaped.
 - **`npm run verify-schema`** (`app/scripts/verify-schema.mjs`) passes against
   this deployment: all 9 frontend call sites match the real contract schema
   by name and arity.

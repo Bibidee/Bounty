@@ -22,10 +22,10 @@ export const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ??
   "") as `0x${string}`;
 
 export const EXPLORER_TX_URL = (hash: string) =>
-  `https://genlayer-explorer.vercel.app/tx/${hash}`;
+  `https://explorer-studio.genlayer.com/tx/${hash}`;
 
 export const EXPLORER_ADDRESS_URL = (address: string) =>
-  `https://genlayer-explorer.vercel.app/address/${address}`;
+  `https://explorer-studio.genlayer.com/address/${address}`;
 
 export const WALLET_STORAGE_KEY = "bounty-verdict.generated-wallet.v1";
 export const WALLET_ACK_STORAGE_KEY = "bounty-verdict.generated-wallet.ack.v1";

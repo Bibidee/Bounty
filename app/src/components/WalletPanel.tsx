@@ -72,12 +72,21 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
       className="glass glow absolute right-0 mt-2 w-80 rounded-xl p-4 text-sm"
     >
       {wallet.mode === "injected" && wallet.address && (
-        <div className="space-y-2">
-          <p className="text-text-muted">Connected with your injected wallet.</p>
-          <p className="font-mono break-all">{wallet.address}</p>
-          <p className="text-xs text-text-faint">
-            Reads and writes both use this address.
-          </p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-text-muted">Connected with your injected wallet.</p>
+            <p className="font-mono break-all mt-1">{wallet.address}</p>
+            <p className="text-xs text-text-faint mt-1">
+              Reads and writes both use this address.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={wallet.disconnect}
+            className="w-full rounded-md border border-danger/40 text-danger px-3 py-1.5 hover:bg-danger-bg transition-colors"
+          >
+            Disconnect
+          </button>
         </div>
       )}
 
@@ -124,12 +133,23 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           )}
+          <button
+            type="button"
+            onClick={wallet.disconnect}
+            className="w-full rounded-md border border-danger/40 text-danger px-3 py-1.5 hover:bg-danger-bg transition-colors"
+          >
+            Disconnect
+          </button>
+          <p className="text-xs text-text-faint">
+            Your key stays saved in this browser — reopening the wallet menu
+            will offer it again.
+          </p>
         </div>
       )}
 
       {wallet.mode === "none" && (
         <div className="space-y-4">
-          {wallet.injectedAvailable ? (
+          {wallet.injectedAvailable && (
             <button
               type="button"
               onClick={handleConnectInjected}
@@ -137,62 +157,76 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
             >
               Connect injected wallet
             </button>
-          ) : (
-            <p className="text-text-muted text-xs">
-              No injected wallet (like MetaMask) detected. You can generate a
-              wallet that lives in this browser instead.
-            </p>
           )}
 
-          <div className="border-t border-border pt-3 space-y-2">
-            <label className="flex items-start gap-2 text-xs text-text-muted">
-              <input
-                type="checkbox"
-                checked={ack}
-                onChange={(e) => setAck(e.target.checked)}
-                className="mt-0.5"
-              />
-              <span>
-                I understand this key will live only in this browser. Clearing
-                site data destroys it. This is not custody-grade — export a
-                backup if the amount matters.
-              </span>
-            </label>
+          {wallet.hasStoredGeneratedWallet ? (
             <button
               type="button"
-              disabled={!ack}
-              onClick={handleGenerate}
-              className="w-full rounded-md border border-border px-3 py-1.5 font-medium enabled:hover:bg-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={wallet.reconnectStoredWallet}
+              className="w-full rounded-md border border-border px-3 py-1.5 font-medium hover:bg-bg transition-colors"
             >
-              Generate a new browser wallet
+              Reconnect saved browser wallet
             </button>
-            <button
-              type="button"
-              onClick={() => setShowImport((v) => !v)}
-              className="w-full text-xs text-text-muted underline decoration-dotted"
-            >
-              or import an existing key
-            </button>
-            {showImport && (
-              <div className="space-y-2">
+          ) : (
+            !wallet.injectedAvailable && (
+              <p className="text-text-muted text-xs">
+                No injected wallet (like MetaMask) detected. You can generate
+                a wallet that lives in this browser instead.
+              </p>
+            )
+          )}
+
+          {!wallet.hasStoredGeneratedWallet && (
+            <div className="border-t border-border pt-3 space-y-2">
+              <label className="flex items-start gap-2 text-xs text-text-muted">
                 <input
-                  type="password"
-                  value={importValue}
-                  onChange={(e) => setImportValue(e.target.value)}
-                  placeholder="0x…"
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-xs font-mono"
+                  type="checkbox"
+                  checked={ack}
+                  onChange={(e) => setAck(e.target.checked)}
+                  className="mt-0.5"
                 />
-                <button
-                  type="button"
-                  disabled={!ack || !importValue.trim()}
-                  onClick={handleImport}
-                  className="w-full rounded-md border border-border px-3 py-1.5 text-xs font-medium enabled:hover:bg-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Import key
-                </button>
-              </div>
-            )}
-          </div>
+                <span>
+                  I understand this key will live only in this browser.
+                  Clearing site data destroys it. This is not custody-grade —
+                  export a backup if the amount matters.
+                </span>
+              </label>
+              <button
+                type="button"
+                disabled={!ack}
+                onClick={handleGenerate}
+                className="w-full rounded-md border border-border px-3 py-1.5 font-medium enabled:hover:bg-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Generate a new browser wallet
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImport((v) => !v)}
+                className="w-full text-xs text-text-muted underline decoration-dotted"
+              >
+                or import an existing key
+              </button>
+              {showImport && (
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    value={importValue}
+                    onChange={(e) => setImportValue(e.target.value)}
+                    placeholder="0x…"
+                    className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-xs font-mono"
+                  />
+                  <button
+                    type="button"
+                    disabled={!ack || !importValue.trim()}
+                    onClick={handleImport}
+                    className="w-full rounded-md border border-border px-3 py-1.5 text-xs font-medium enabled:hover:bg-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Import key
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

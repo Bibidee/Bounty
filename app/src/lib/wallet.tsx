@@ -39,9 +39,11 @@ interface WalletState {
   hasStoredGeneratedWallet: boolean;
   hasAcknowledgedGeneratedWalletWarning: boolean;
   connectInjected: () => Promise<void>;
+  reconnectStoredWallet: () => void;
   generateNewWallet: (acknowledged: boolean) => void;
   importGeneratedWallet: (privateKey: string, acknowledged: boolean) => void;
   exportGeneratedPrivateKey: () => string | null;
+  disconnect: () => void;
 }
 
 const WalletContext = createContext<WalletState | null>(null);
@@ -106,11 +108,27 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setMode("injected");
   }, []);
 
+  const reconnectStoredWallet = useCallback(() => {
+    const storedKey = readStoredKey();
+    if (!storedKey) return;
+    const account = createAccount(storedKey);
+    setClient(createClient({ chain, account }));
+    setAddress(account.address as `0x${string}`);
+    setMode("generated");
+  }, []);
+
   const generateNewWallet = useCallback((acknowledged: boolean) => {
     if (!acknowledged) {
       throw new Error("Generated-wallet warning must be acknowledged first.");
     }
     if (typeof window === "undefined") return;
+    if (readStoredKey()) {
+      throw new Error(
+        "A generated wallet already exists in this browser. Reconnect it " +
+          "instead, or export/back it up before replacing it — generating " +
+          "a new one would make the old address unreachable from here."
+      );
+    }
     const privateKey = generatePrivateKey();
     window.localStorage.setItem(WALLET_STORAGE_KEY, privateKey);
     window.localStorage.setItem(WALLET_ACK_STORAGE_KEY, "true");
@@ -147,6 +165,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return readStoredKey();
   }, []);
 
+  const disconnect = useCallback(() => {
+    // Deactivates the current session only. A generated wallet's key stays
+    // in localStorage (never silently deleted) and will be offered again
+    // next time the wallet panel loads.
+    setClient(null);
+    setAddress(null);
+    setMode("none");
+  }, []);
+
   const value = useMemo<WalletState>(
     () => ({
       mode,
@@ -156,9 +183,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       hasStoredGeneratedWallet,
       hasAcknowledgedGeneratedWalletWarning,
       connectInjected,
+      reconnectStoredWallet,
       generateNewWallet,
       importGeneratedWallet,
       exportGeneratedPrivateKey,
+      disconnect,
     }),
     [
       mode,
@@ -168,9 +197,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       hasStoredGeneratedWallet,
       hasAcknowledgedGeneratedWalletWarning,
       connectInjected,
+      reconnectStoredWallet,
       generateNewWallet,
       importGeneratedWallet,
       exportGeneratedPrivateKey,
+      disconnect,
     ]
   );
 
